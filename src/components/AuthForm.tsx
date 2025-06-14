@@ -16,7 +16,6 @@ const AuthForm = () => {
     password: '',
     fullName: '',
     phone: '',
-    isAdmin: false,
   });
   const [signInData, setSignInData] = useState({
     email: '',
@@ -24,9 +23,12 @@ const AuthForm = () => {
   });
   const { toast } = useToast();
 
+  console.log('AuthForm rendered');
+
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    console.log('Attempting sign up with:', signUpData.email);
 
     try {
       const { error } = await supabase.auth.signUp({
@@ -48,6 +50,7 @@ const AuthForm = () => {
         description: "Please check your email to verify your account.",
       });
     } catch (error: any) {
+      console.error('Sign up error:', error);
       toast({
         title: "Sign Up Error",
         description: error.message,
@@ -61,6 +64,7 @@ const AuthForm = () => {
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    console.log('Attempting sign in with:', signInData.email);
 
     try {
       const { error } = await supabase.auth.signInWithPassword({
@@ -75,6 +79,7 @@ const AuthForm = () => {
         description: "You have been logged in successfully!",
       });
     } catch (error: any) {
+      console.error('Sign in error:', error);
       toast({
         title: "Sign In Error",
         description: error.message,
@@ -149,37 +154,35 @@ const AuthForm = () => {
             
             <TabsContent value="signup">
               <form onSubmit={handleSignUp} className="space-y-4">
-                <div className="grid grid-cols-1 gap-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-name">Full Name</Label>
-                    <div className="relative">
-                      <User className="absolute left-3 top-3 h-4 w-4 text-teal-500" />
-                      <Input
-                        id="signup-name"
-                        type="text"
-                        placeholder="Enter your full name"
-                        value={signUpData.fullName}
-                        onChange={(e) => setSignUpData({ ...signUpData, fullName: e.target.value })}
-                        className="pl-10 border-teal-200 focus:border-teal-500"
-                        required
-                      />
-                    </div>
+                <div className="space-y-2">
+                  <Label htmlFor="signup-name">Full Name</Label>
+                  <div className="relative">
+                    <User className="absolute left-3 top-3 h-4 w-4 text-teal-500" />
+                    <Input
+                      id="signup-name"
+                      type="text"
+                      placeholder="Enter your full name"
+                      value={signUpData.fullName}
+                      onChange={(e) => setSignUpData({ ...signUpData, fullName: e.target.value })}
+                      className="pl-10 border-teal-200 focus:border-teal-500"
+                      required
+                    />
                   </div>
-                  
-                  <div className="space-y-2">
-                    <Label htmlFor="signup-phone">Phone</Label>
-                    <div className="relative">
-                      <Phone className="absolute left-3 top-3 h-4 w-4 text-teal-500" />
-                      <Input
-                        id="signup-phone"
-                        type="tel"
-                        placeholder="Enter your phone number"
-                        value={signUpData.phone}
-                        onChange={(e) => setSignUpData({ ...signUpData, phone: e.target.value })}
-                        className="pl-10 border-teal-200 focus:border-teal-500"
-                        required
-                      />
-                    </div>
+                </div>
+                
+                <div className="space-y-2">
+                  <Label htmlFor="signup-phone">Phone</Label>
+                  <div className="relative">
+                    <Phone className="absolute left-3 top-3 h-4 w-4 text-teal-500" />
+                    <Input
+                      id="signup-phone"
+                      type="tel"
+                      placeholder="Enter your phone number"
+                      value={signUpData.phone}
+                      onChange={(e) => setSignUpData({ ...signUpData, phone: e.target.value })}
+                      className="pl-10 border-teal-200 focus:border-teal-500"
+                      required
+                    />
                   </div>
                 </div>
                 

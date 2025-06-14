@@ -22,9 +22,12 @@ const AppContent = () => {
   const { toast } = useToast();
 
   useEffect(() => {
+    console.log('Setting up auth state listener...');
+    
     // Set up auth state listener
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
+        console.log('Auth state changed:', event, session?.user?.email);
         setSession(session);
         setUser(session?.user ?? null);
         setLoading(false);
@@ -33,6 +36,7 @@ const AppContent = () => {
 
     // Check for existing session
     supabase.auth.getSession().then(({ data: { session } }) => {
+      console.log('Initial session check:', session?.user?.email);
       setSession(session);
       setUser(session?.user ?? null);
       setLoading(false);
@@ -57,6 +61,8 @@ const AppContent = () => {
     }
   };
 
+  console.log('Current state:', { loading, user: user?.email, session: !!session });
+
   if (loading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 to-orange-50">
@@ -65,12 +71,14 @@ const AppContent = () => {
     );
   }
 
-  if (!user) {
+  if (!user || !session) {
+    console.log('Showing AuthForm - no user or session');
     return <AuthForm />;
   }
 
   // Check if user is admin (you can customize this logic)
   const isAdmin = user.email?.includes('admin') || false;
+  console.log('User is admin:', isAdmin);
 
   return (
     <BrowserRouter>

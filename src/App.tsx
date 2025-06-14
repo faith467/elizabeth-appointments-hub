@@ -76,9 +76,9 @@ const AppContent = () => {
     return <AuthForm />;
   }
 
-  // Check if user is admin (you can customize this logic)
-  const isAdmin = user.email?.includes('admin') || false;
-  console.log('User is admin:', isAdmin);
+  // Check if user is admin based on their role in user metadata
+  const isAdmin = user.user_metadata?.role === 'admin';
+  console.log('User role:', user.user_metadata?.role, 'Is admin:', isAdmin);
 
   return (
     <BrowserRouter>

@@ -1,10 +1,12 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import AppointmentForm from '@/components/AppointmentForm';
 import AppointmentList from '@/components/AppointmentList';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Calendar, Clock, User, Activity } from 'lucide-react';
+import { Card, CardContent } from '@/components/ui/card';
+import { Calendar, Clock, Activity } from 'lucide-react';
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from '@/hooks/use-toast';
 
 interface Appointment {
   id: string;
@@ -24,9 +26,75 @@ interface UserDashboardProps {
 
 const UserDashboard = ({ onLogout }: UserDashboardProps) => {
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
-  const handleAppointmentSubmit = (newAppointment: Appointment) => {
-    setAppointments(prev => [...prev, newAppointment]);
+  const fetchAppointments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedAppointments = data.map(apt => ({
+        id: apt.id,
+        patientName: apt.patient_name,
+        phone: apt.phone,
+        date: apt.date,
+        time: apt.time,
+        type: apt.type,
+        reason: apt.reason || '',
+        status: apt.status as 'pending' | 'confirmed' | 'completed' | 'cancelled',
+        createdAt: apt.created_at,
+      }));
+
+      setAppointments(formattedAppointments);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch appointments: " + error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAppointments();
+  }, []);
+
+  const handleAppointmentSubmit = async (newAppointment: any) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error('User not authenticated');
+
+      const { error } = await supabase
+        .from('appointments')
+        .insert({
+          user_id: user.id,
+          patient_name: newAppointment.patientName,
+          phone: newAppointment.phone,
+          date: newAppointment.date,
+          time: newAppointment.time,
+          type: newAppointment.type,
+          reason: newAppointment.reason,
+          status: 'pending'
+        });
+
+      if (error) throw error;
+
+      // Refresh appointments list
+      fetchAppointments();
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to create appointment: " + error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const upcomingCount = appointments.filter(apt => 
@@ -36,6 +104,16 @@ const UserDashboard = ({ onLogout }: UserDashboardProps) => {
   const completedCount = appointments.filter(apt => 
     apt.status === 'completed'
   ).length;
+
+  if (loading) {
+    return (
+      <Layout userType="user" onLogout={onLogout}>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-teal-600">Loading...</div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout userType="user" onLogout={onLogout}>

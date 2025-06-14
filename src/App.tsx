@@ -4,7 +4,9 @@ import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { BrowserRouter, Routes, Route } from "react-router-dom";
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { User, Session } from '@supabase/supabase-js';
+import { supabase } from "@/integrations/supabase/client";
 import AuthForm from "./components/AuthForm";
 import UserDashboard from "./pages/UserDashboard";
 import AdminDashboard from "./pages/AdminDashboard";
@@ -14,44 +16,61 @@ import { useToast } from "@/hooks/use-toast";
 const queryClient = new QueryClient();
 
 const AppContent = () => {
-  const [user, setUser] = useState<{ email: string; isAdmin: boolean } | null>(null);
+  const [user, setUser] = useState<User | null>(null);
+  const [session, setSession] = useState<Session | null>(null);
+  const [loading, setLoading] = useState(true);
   const { toast } = useToast();
 
-  const handleAuth = async (email: string, password: string, isSignUp: boolean, isAdmin: boolean, fullName?: string) => {
-    try {
-      // Simulate authentication
-      console.log('Auth attempt:', { email, isSignUp, isAdmin, fullName });
-      
-      // In a real app, this would make API calls to Supabase
-      setUser({ email, isAdmin });
-      
+  useEffect(() => {
+    // Set up auth state listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange(
+      (event, session) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        setLoading(false);
+      }
+    );
+
+    // Check for existing session
+    supabase.auth.getSession().then(({ data: { session } }) => {
+      setSession(session);
+      setUser(session?.user ?? null);
+      setLoading(false);
+    });
+
+    return () => subscription.unsubscribe();
+  }, []);
+
+  const handleLogout = async () => {
+    const { error } = await supabase.auth.signOut();
+    if (error) {
       toast({
-        title: isSignUp ? "Account Created" : "Welcome Back",
-        description: isSignUp 
-          ? "Your account has been created successfully!" 
-          : "You have been logged in successfully!",
-      });
-    } catch (error) {
-      console.error('Auth error:', error);
-      toast({
-        title: "Authentication Error",
-        description: "Please check your credentials and try again.",
+        title: "Error",
+        description: error.message,
         variant: "destructive",
+      });
+    } else {
+      toast({
+        title: "Logged Out",
+        description: "You have been logged out successfully.",
       });
     }
   };
 
-  const handleLogout = () => {
-    setUser(null);
-    toast({
-      title: "Logged Out",
-      description: "You have been logged out successfully.",
-    });
-  };
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-teal-50 to-orange-50">
+        <div className="text-teal-600">Loading...</div>
+      </div>
+    );
+  }
 
   if (!user) {
-    return <AuthForm onAuth={handleAuth} />;
+    return <AuthForm />;
   }
+
+  // Check if user is admin (you can customize this logic)
+  const isAdmin = user.email?.includes('admin') || false;
 
   return (
     <BrowserRouter>
@@ -59,7 +78,7 @@ const AppContent = () => {
         <Route 
           path="/" 
           element={
-            user.isAdmin 
+            isAdmin 
               ? <AdminDashboard onLogout={handleLogout} />
               : <UserDashboard onLogout={handleLogout} />
           } 

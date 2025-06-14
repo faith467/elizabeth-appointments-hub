@@ -1,9 +1,11 @@
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import Layout from '@/components/Layout';
 import AdminTable from '@/components/AdminTable';
 import { Card, CardContent } from '@/components/ui/card';
-import { Users, Calendar, CheckCircle, Clock, TrendingUp, Activity } from 'lucide-react';
+import { Users, Calendar, CheckCircle, Clock, Activity } from 'lucide-react';
+import { supabase } from "@/integrations/supabase/client";
+import { useToast } from '@/hooks/use-toast';
 
 interface Appointment {
   id: string;
@@ -22,51 +24,71 @@ interface AdminDashboardProps {
 }
 
 const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
-  // Mock data for demonstration
-  const [appointments, setAppointments] = useState<Appointment[]>([
-    {
-      id: '1',
-      patientName: 'John Smith',
-      phone: '+1 (555) 123-4567',
-      date: '2024-06-15',
-      time: '10:00',
-      type: 'General Consultation',
-      reason: 'Regular check-up and consultation',
-      status: 'pending',
-      createdAt: '2024-06-14T10:00:00Z',
-    },
-    {
-      id: '2',
-      patientName: 'Sarah Johnson',
-      phone: '+1 (555) 987-6543',
-      date: '2024-06-16',
-      time: '14:30',
-      type: 'Follow-up Visit',
-      reason: 'Follow-up for recent lab results',
-      status: 'confirmed',
-      createdAt: '2024-06-13T15:30:00Z',
-    },
-    {
-      id: '3',
-      patientName: 'Michael Brown',
-      phone: '+1 (555) 456-7890',
-      date: '2024-06-14',
-      time: '09:00',
-      type: 'Routine Check-up',
-      reason: 'Annual health screening',
-      status: 'completed',
-      createdAt: '2024-06-12T09:00:00Z',
-    },
-  ]);
+  const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [loading, setLoading] = useState(true);
+  const { toast } = useToast();
 
-  const handleStatusUpdate = (id: string, newStatus: 'confirmed' | 'completed' | 'cancelled') => {
-    setAppointments(prev => 
-      prev.map(appointment => 
-        appointment.id === id 
-          ? { ...appointment, status: newStatus }
-          : appointment
-      )
-    );
+  const fetchAppointments = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('appointments')
+        .select('*')
+        .order('created_at', { ascending: false });
+
+      if (error) throw error;
+
+      const formattedAppointments = data.map(apt => ({
+        id: apt.id,
+        patientName: apt.patient_name,
+        phone: apt.phone,
+        date: apt.date,
+        time: apt.time,
+        type: apt.type,
+        reason: apt.reason || '',
+        status: apt.status as 'pending' | 'confirmed' | 'completed' | 'cancelled',
+        createdAt: apt.created_at,
+      }));
+
+      setAppointments(formattedAppointments);
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to fetch appointments: " + error.message,
+        variant: "destructive",
+      });
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchAppointments();
+  }, []);
+
+  const handleStatusUpdate = async (id: string, newStatus: 'confirmed' | 'completed' | 'cancelled') => {
+    try {
+      const { error } = await supabase
+        .from('appointments')
+        .update({ status: newStatus, updated_at: new Date().toISOString() })
+        .eq('id', id);
+
+      if (error) throw error;
+
+      // Update local state
+      setAppointments(prev => 
+        prev.map(appointment => 
+          appointment.id === id 
+            ? { ...appointment, status: newStatus }
+            : appointment
+        )
+      );
+    } catch (error: any) {
+      toast({
+        title: "Error",
+        description: "Failed to update appointment: " + error.message,
+        variant: "destructive",
+      });
+    }
   };
 
   const stats = {
@@ -76,6 +98,16 @@ const AdminDashboard = ({ onLogout }: AdminDashboardProps) => {
     completed: appointments.filter(apt => apt.status === 'completed').length,
     cancelled: appointments.filter(apt => apt.status === 'cancelled').length,
   };
+
+  if (loading) {
+    return (
+      <Layout userType="admin" onLogout={onLogout}>
+        <div className="flex items-center justify-center h-64">
+          <div className="text-teal-600">Loading...</div>
+        </div>
+      </Layout>
+    );
+  }
 
   return (
     <Layout userType="admin" onLogout={onLogout}>

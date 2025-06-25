@@ -17,19 +17,40 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
     queryFn: async () => {
       const { data, error } = await supabase
         .from('appointments')
-        .select(`
-          *,
-          profiles (
-            full_name,
-            phone
-          )
-        `)
-        .order('appointment_date', { ascending: true });
+        .select('*')
+        .order('date', { ascending: true });
       
       if (error) throw error;
-      return data;
+      
+      // Transform the data to match the expected interface
+      return data?.map(appointment => ({
+        id: appointment.id,
+        patientName: appointment.patient_name,
+        phone: appointment.phone,
+        date: appointment.date,
+        time: appointment.time,
+        type: appointment.type,
+        reason: appointment.reason || '',
+        status: appointment.status as 'pending' | 'confirmed' | 'completed' | 'cancelled',
+        createdAt: appointment.created_at
+      })) || [];
     },
   });
+
+  const handleUpdateStatus = async (id: string, status: 'confirmed' | 'completed' | 'cancelled') => {
+    const { error } = await supabase
+      .from('appointments')
+      .update({ status })
+      .eq('id', id);
+    
+    if (error) {
+      console.error('Error updating appointment status:', error);
+      return;
+    }
+    
+    // Refetch the appointments to update the UI
+    window.location.reload();
+  };
 
   return (
     <Layout onLogout={onLogout}>
@@ -59,7 +80,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({ onLogout }) => {
             {isLoading ? (
               <div className="text-center py-4 text-teal-600">Loading appointments...</div>
             ) : (
-              <AdminTable appointments={appointments || []} />
+              <AdminTable appointments={appointments || []} onUpdateStatus={handleUpdateStatus} />
             )}
           </CardContent>
         </Card>
